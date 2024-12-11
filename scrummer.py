@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from datetime import date
 import os
 
 class Info:
@@ -18,6 +19,7 @@ info = Info()
 setup_done = 0
 server_name = None
 wokenup = 0
+index = 0
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
@@ -186,5 +188,46 @@ async def voice(ctx, channel_name: str):
     except Exception as e:
         await ctx.send(f"Error sending file: {e}")
 
+@bot.command(name= "todo")
+async def todo(ctx, priority: int, *, user_message: str):
+
+    if priority < 1 or priority > 3:
+        await ctx.send("Priority out of range. Priority should be between 1 and 3")
+        return
+
+    global index
+    message = [None, priority, user_message]
+    filename = str(date.today()) + ".txt"
+    lines = None
+    place = 0
+
+    if not os.path.exists(filename):
+        open(filename, "x")
+        index = 0
+    elif not index:
+        with open(filename, "r", encoding="utf-8") as file:
+            for line in file:
+                index += 1
+
+    index = index + 1
+    message[0] = index
+
+    with open(filename, "r", encoding="utf-8") as file:
+        lines = file.readlines()
+        for line in lines:
+            line = line.split()
+            if int(line[1]) < priority:
+                break
+            else:
+                place += 1
+
+    write = " ".join(map(str, message))
+    write += "\n"
+    lines.insert(place, write)
+
+    with open(filename, "w", encoding="utf-8") as file:
+        file.writelines(lines)
+    
+    await ctx.send(f"Task {index} successfully submitted")
 
 bot.run(TOKEN)
