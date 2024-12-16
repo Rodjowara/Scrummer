@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from datetime import date
+from datetime import date, datetime
 import os
 
 class Info:
@@ -9,6 +9,7 @@ class Info:
     startdate = None
     enddate = None
     meeting_time = None
+    current_week = None
 
 TOKEN = "MTMwMDQwNDk3OTQyMDM2ODkxNw.GY_yyw.nZjvzf-4KDxCtGfxm0CQ6Chm-BUIWLrpDuzqGE"
 intents = discord.Intents.default()
@@ -34,16 +35,15 @@ async def wakeup(ctx):
 
     wokenup = 1
 
-    #ovo rješenje funkcionira samo kad je bot u jednom serveru
-    #TODO: za bota koji je u više servera
-    #maaybe da se provjeri formating filea? Da nam ne bi zločesti programer podvalio nešto
-
     file_name = 'setup_' + server_name + '.txt'
 
     if os.path.isfile(file_name):
-        print('Dosao u os.path.isfile')
         setup_done = 1
+        lines = None
         with open(file_name, 'r') as file:
+            lines = file.readlines()
+            file.seek(0)
+
             line = file.readline().strip().split(':')
             info.server_name = line[1]
 
@@ -58,6 +58,18 @@ async def wakeup(ctx):
 
             line = file.readline().strip().split(':')
             info.meeting_time = line[1]
+
+        current_week = date.today().isocalendar()
+        if current_week != info.current_week:
+            lines[5] = "current_week:" + str(current_week) + "\n"
+            info.current_week = current_week
+            with open(file_name, 'w') as file:
+                file.write(lines)
+            with open("progress.txt", 'a') as file:
+                wrote = "Week " + str(current_week) + ":\n"
+                file.write(wrote)
+
+
 
     print(f'{bot.user} has connected to Discord')    
 
@@ -162,6 +174,7 @@ async def setup(ctx):
         file.write(f'startdate:{info.startdate}\n')
         file.write(f'enddate:{info.enddate}\n')
         file.write(f'meeting_time:{info.meeting_time}\n')
+        file.write(f'current_week:{info.current_week}\n')
 
     setup_done = 1
 
@@ -190,6 +203,10 @@ async def voice(ctx, channel_name: str):
 
 @bot.command(name= "todo")
 async def todo(ctx, priority: int, *, user_message: str):
+    
+    global setup_done
+    if not setup_done:
+        await wakeup()
 
     if priority < 1 or priority > 3:
         await ctx.send("Priority out of range. Priority should be between 1 and 3")
@@ -228,6 +245,34 @@ async def todo(ctx, priority: int, *, user_message: str):
     with open(filename, "w", encoding="utf-8") as file:
         file.writelines(lines)
     
+    with open("progress.txt", 'a', encoding="utf-8") as file:
+        report = "Reported bug " + str(message[0]) + ", description: " + str(message[2]) + "\n"
+        file.write(report)    
+
     await ctx.send(f"Task {index} successfully submitted")
+
+@bot.command(name="progress")
+async def progress(ctx, id: int):
+
+    global setup_done
+    if not setup_done:
+        await wakeup()
+
+    lines = None
+    found = 0
+    with open("progress.txt", 'r') as file:
+        lines = file.readlines()
+    
+    for line in lines:
+        if line[0] == id:
+            found = 1
+            break
+    
+    if found:
+        with open("progress.txt.", 'a') as file:
+            message = "Resolved bug number " + str(id) + "\n"
+            file.write(message)
+    else:
+        await ctx.send("Bug not found. Please check if the id is correct.")
 
 bot.run(TOKEN)
