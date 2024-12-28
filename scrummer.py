@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import os
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 class Info:
     server_name = None
@@ -10,11 +12,14 @@ class Info:
     enddate = None
     meeting_time = None
     current_week = None
+    progress_channel = None
 
 TOKEN = "MTMwMDQwNDk3OTQyMDM2ODkxNw.GY_yyw.nZjvzf-4KDxCtGfxm0CQ6Chm-BUIWLrpDuzqGE"
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+intents.guilds = True
+scheduler = AsyncIOScheduler()
 
 info = Info()
 setup_done = 0
@@ -59,9 +64,12 @@ async def wakeup(ctx):
             line = file.readline().strip().split(':')
             info.meeting_time = line[1]
 
+            line = file.readline().strip().split(':')
+            info.progress_channel = line[1]
+
         current_week = date.today().isocalendar()
         if current_week != info.current_week:
-            lines[5] = "current_week:" + str(current_week) + "\n"
+            lines[6] = "current_week:" + str(current_week) + "\n"
             info.current_week = current_week
             with open(file_name, 'w') as file:
                 file.write(lines)
@@ -69,13 +77,31 @@ async def wakeup(ctx):
                 wrote = "Week " + str(current_week) + ":\n"
                 file.write(wrote)
 
+    start = info.startdate.split(".")
+    time = info.meeting_time.split(":")
+    start_time = datetime(start[2], start[1], start[0], time[0], time[1])
+    scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
+    scheduler.start()
 
+    send_time = info.meeting_time.split(':')
+    target_time = datetime.time(hour=send_time[0], minute=send_time[1])
+    time = (datetime.combine(datetime.today(), target_time) - timedelta(minutes=30))
+    
+    GUILD_ID = None
+    GUILD_OWNER = None
+    for guild in bot.guilds:
+        if guild.name == Info.server_name:
+            GUILD_ID = guild.id
+            GUILD_OWNER = guild.owner
+            break
+
+    scheduler.add_job(
+        bugreport,
+        CronTrigger(hour=time.hour, minute=time.minute),
+        args=[GUILD_ID, GUILD_OWNER]
+    )
 
     print(f'{bot.user} has connected to Discord')    
-
-@bot.command(name="hello")
-async def greet(ctx):
-    await ctx.send(f'Hello, {ctx.author.name}')
 
 @bot.command(name="setup")
 async def setup(ctx):
@@ -109,7 +135,7 @@ async def setup(ctx):
     lines = [line for line in text if line.strip()]
     line_count = len(lines)
     if line_count < (info.member_count + 3):
-        await ctx.send('Missing info in the file. Send the file with all required information (start and end dates, meeting time, and roles for all members')
+        await ctx.send('Missing info in the file. Send the file with all required information (start and end dates, meeting time, progress channel, and roles for all members')
         return
 
     message = None
@@ -151,8 +177,22 @@ async def setup(ctx):
             i += 1
             info.meeting_time = line[1]
             message += (f'Meeting time for this project is {info.meeting_time}\n')
+        
+        if line[0] == 'progress_channel':
+            i += 1
+            channel_name = line[1]
+            for channel in ctx.guild.channels:
+                if channel.name == channel_name:
+                    info.progress_channel = channel.id
+                    message += (f'Meeting time for this project is {channel_name}\n')
+            
+            if not info.progress_channel:
+                await ctx.send('The channel does not exist. Please enter a valid channel')
+                return
 
-    if i != 3:
+            message += (f'Progress channel for this project is {info.progress_channel}\n')
+
+    if i != 4:
         await ctx.send('Invalid file sent. Please send a valid setup file.')
         return
 
@@ -175,6 +215,13 @@ async def setup(ctx):
         file.write(f'enddate:{info.enddate}\n')
         file.write(f'meeting_time:{info.meeting_time}\n')
         file.write(f'current_week:{info.current_week}\n')
+        file.write(f'progress_channel:{info.progress_channel}\n')
+
+    start = info.startdate.split(".")
+    time = info.meeting_time.split(":")
+    start_time = datetime(start[2], start[1], start[0], time[0], time[1])
+    scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
+    scheduler.start()
 
     setup_done = 1
 
@@ -274,5 +321,44 @@ async def progress(ctx, id: int):
             file.write(message)
     else:
         await ctx.send("Bug not found. Please check if the id is correct.")
+
+async def progress_report():
+
+    now = datetime.now()
+    end = info.enddate.split(".")
+    time = info.meeting_time.split(":")
+    endtime = datetime(end[2], end[1], end[0], time[0], time[1])
+    
+    channel = bot.get_channel(info.progress_channel)
+
+    if now > endtime:
+        if channel:
+            try:
+                await channel.send("Here is this week's progress report:", file=discord.File("progress.txt"))
+            except Exception as e:
+                print(f"Failed to send file: {e}")
+        else:
+            print(f"Channel with ID {info.progress_channel} not found.")
+
+        print("End date reached. Stopping file messages.")
+        scheduler.remove_all_jobs()
+        return
+    
+    if channel:
+        try:
+            await channel.send("Here is this week's progress report:", file=discord.File("progress.txt"))
+        except Exception as e:
+                print(f"Failed to send file: {e}")
+    else:
+        print(f"Channel with ID {info.progress_channel} not found.")
+        
+
+async def bugreport(id, owner):
+    filename = str(date.today()) + ".txt"
+    try:
+        await owner.send("Here's your bugreport file: ", file = discord.File(filename))
+        print(f"File sent to {owner.name} (server owner).")
+    except Exception as e:
+        print(f"Failed to send file to the server owner: {e}")
 
 bot.run(TOKEN)
