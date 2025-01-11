@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 import os
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -62,42 +62,65 @@ async def wakeup(ctx):
             info.enddate = line[1]
 
             line = file.readline().strip().split(':')
-            info.meeting_time = line[1]
+            meeting_time = [line[1], line[2]]
+            info.meeting_time = ':'.join(meeting_time)
 
             line = file.readline().strip().split(':')
             info.progress_channel = line[1]
 
-        current_week = date.today().isocalendar()
+        week_number = date.today().isocalendar()[1]
+        tempdate = datetime.strptime(info.startdate, "%d.%m.%Y.").date().isocalendar()[1]
+        current_week = week_number - tempdate
+
+        if current_week < 0:
+            current_week = 52 - tempdate + week_number
+
         if current_week != info.current_week:
             lines[6] = "current_week:" + str(current_week) + "\n"
             info.current_week = current_week
             with open(file_name, 'w') as file:
-                file.write(lines)
+                for line in lines:
+                    line = ''.join(line)
+                    file.write(line)
             with open("progress.txt", 'a') as file:
+                file.write('\n')
                 wrote = "Week " + str(current_week) + ":\n"
                 file.write(wrote)
 
     start = info.startdate.split(".")
-    time = info.meeting_time.split(":")
-    start_time = datetime(start[2], start[1], start[0], time[0], time[1])
-    scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
+    times = info.meeting_time.split(":")
+
+    # start_time = datetime(start[2], start[1], start[0], time[0], time[1])
+    # scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
+
+    start_time = datetime.now()
+    scheduler.add_job(progress_report, 'interval', minutes=2, start_date=start_time)
+
     scheduler.start()
 
     send_time = info.meeting_time.split(':')
-    target_time = datetime.time(hour=send_time[0], minute=send_time[1])
-    time = (datetime.combine(datetime.today(), target_time) - timedelta(minutes=30))
+    hours = int(send_time[0])
+    minutes = int(send_time[1])
+    target_time = time(hour=hours, minute=minutes)
+    times = (datetime.combine(datetime.today(), target_time) - timedelta(minutes=30))
     
     GUILD_ID = None
     GUILD_OWNER = None
     for guild in bot.guilds:
-        if guild.name == Info.server_name:
+        if guild.name == info.server_name:
             GUILD_ID = guild.id
             GUILD_OWNER = guild.owner
             break
 
+    # scheduler.add_job(
+    #     bugreport,
+    #     CronTrigger(hour=time.hour, minute=time.minute),
+    #     args=[GUILD_ID, GUILD_OWNER]
+    # )
+
     scheduler.add_job(
         bugreport,
-        CronTrigger(hour=time.hour, minute=time.minute),
+        CronTrigger(minute='*/2'), 
         args=[GUILD_ID, GUILD_OWNER]
     )
 
@@ -109,15 +132,13 @@ async def setup(ctx):
     global server_name
     global wokenup
 
-    if not wokenup:
-        await wakeup(ctx)
-
     if setup_done:
         await ctx.send('Setup is already completed')
         return
 
-    info.server_name = ctx.guild
-    info.member_count = info.server_name.member_count
+    info.server_name = str(ctx.guild)
+    server_name = str(ctx.guild)
+    info.member_count = ctx.guild.member_count
 
     if not ctx.message.attachments:
         await ctx.send("Please attach a .txt file.")
@@ -184,7 +205,7 @@ async def setup(ctx):
             for channel in ctx.guild.channels:
                 if channel.name == channel_name:
                     info.progress_channel = channel.id
-                    message += (f'Meeting time for this project is {channel_name}\n')
+                    message += (f'Progress channel for this project is {channel_name}\n')
             
             if not info.progress_channel:
                 await ctx.send('The channel does not exist. Please enter a valid channel')
@@ -200,8 +221,7 @@ async def setup(ctx):
     try:
         async for message in ctx.channel.history(limit=1):
             await message.pin()
-            return
-        await ctx.send("No messages found in this channel.")
+        #await ctx.send("No messages found in this channel.")
     except discord.Forbidden:
         await ctx.send("I don't have permission to pin messages.")
     except discord.HTTPException as e:
@@ -214,13 +234,18 @@ async def setup(ctx):
         file.write(f'startdate:{info.startdate}\n')
         file.write(f'enddate:{info.enddate}\n')
         file.write(f'meeting_time:{info.meeting_time}\n')
-        file.write(f'current_week:{info.current_week}\n')
         file.write(f'progress_channel:{info.progress_channel}\n')
+        file.write(f'current_week:1\n')
 
-    start = info.startdate.split(".")
-    time = info.meeting_time.split(":")
-    start_time = datetime(start[2], start[1], start[0], time[0], time[1])
-    scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
+    # start = info.startdate.split(".")
+    # time = info.meeting_time.split(":")
+
+    #start_time = datetime(start[2], start[1], start[0], time[0], time[1])
+    #scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
+
+    start_time = datetime.now()
+    scheduler.add_job(progress_report, 'interval', minutes=2, start_date=start_time)
+
     scheduler.start()
 
     setup_done = 1
@@ -253,7 +278,7 @@ async def todo(ctx, priority: int, *, user_message: str):
     
     global setup_done
     if not setup_done:
-        await wakeup()
+        await wakeup(ctx)
 
     if priority < 1 or priority > 3:
         await ctx.send("Priority out of range. Priority should be between 1 and 3")
@@ -303,7 +328,7 @@ async def progress(ctx, id: int):
 
     global setup_done
     if not setup_done:
-        await wakeup()
+        await wakeup(ctx)
 
     lines = None
     found = 0
@@ -311,7 +336,9 @@ async def progress(ctx, id: int):
         lines = file.readlines()
     
     for line in lines:
-        if line[0] == id:
+        line = line.split(',')
+        line = line[0].split()
+        if int(line[2]) == id:
             found = 1
             break
     
@@ -327,7 +354,7 @@ async def progress_report():
     now = datetime.now()
     end = info.enddate.split(".")
     time = info.meeting_time.split(":")
-    endtime = datetime(end[2], end[1], end[0], time[0], time[1])
+    endtime = datetime(int(end[2]), int(end[1]), int(end[0]), int(time[0]), int(time[1]))
     
     channel = bot.get_channel(info.progress_channel)
 
