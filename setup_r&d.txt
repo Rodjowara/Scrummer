@@ -1,0 +1,14 @@
+server_name:r&d
+member_count:7
+startdate:21.1.2025.
+enddate:31.1.2025.
+meeting_time:16:30
+progress_channel:1318991759958872084
+current_week:1
+server_name:r&d
+member_count:7
+startdate:21.1.2025.
+enddate:1.2.2025.
+meeting_time:16:30
+progress_channel:1318991759958872084
+current_week:1
