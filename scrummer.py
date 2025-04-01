@@ -349,6 +349,62 @@ async def progress(ctx, id: int):
     else:
         await ctx.send("Bug not found. Please check if the id is correct.")
 
+@bot.command(name="report")
+async def report(ctx, name, *reason):
+
+    global setup_done
+    if not setup_done:
+        await wakeup(ctx)
+    
+    for guild in bot.guilds:
+        if(guild.name == server_name):
+            for member in guild.members:
+                if(member == name):
+
+                    with open("reports.txt", 'a') as file:
+                        file.write(f"Reported member {name} for reason: {reason}")
+
+                    break
+            break
+
+@bot.command(name="file")
+async def file(ctx, file):
+
+    global setup_done
+    if not setup_done:
+        await wakeup(ctx)
+
+    if(os.path.exists(file) and file != "all"):
+        await ctx.send(f"File {file} doesn't exist.")
+        return
+
+    if(file == "progress.txt"):
+        await ctx.send(f"Here is the {file} file: ", file = discord.File("progress.txt"))
+    elif(file == "reports.txt"):
+        await ctx.send(f"Here is the {file} file: ", file = discord.File("reports.txt"))
+    elif(file == "todo"):
+
+        await ctx.send("Here are your todo files: ")
+        for filename in os.listdir("."):
+            if filename.endswith(".txt"):
+                try:
+                    date_part = filename.split(".")[0] 
+                    parsed_date = datetime.strptime(date_part, "%Y-%m-%d")
+                    await ctx.send(file = discord.File(filename))
+                except ValueError:
+                    await ctx.send("There are no todo files currently")
+
+    elif(file == "all"):
+        await ctx.send("Here are all your files: ")
+        for filename in os.listdir("."):
+            if filename.endswith(".txt"):
+                await ctx.send(file = discord.File(filename))
+    
+    else:
+        await ctx.send("There are no such files currently")
+    
+
+
 async def progress_report():
 
     now = datetime.now()
