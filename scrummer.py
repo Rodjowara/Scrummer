@@ -324,30 +324,19 @@ async def todo(ctx, priority: int, *, user_message: str):
     await ctx.send(f"Task {index} successfully submitted")
 
 @bot.command(name="progress")
-async def progress(ctx, id: int):
+async def progress(ctx, id = 0, *description):
 
     global setup_done
     if not setup_done:
         await wakeup(ctx)
 
-    lines = None
-    found = 0
-    with open("progress.txt", 'r') as file:
-        lines = file.readlines()
-    
-    for line in lines:
-        line = line.split(',')
-        line = line[0].split()
-        if int(line[2]) == id:
-            found = 1
-            break
-    
-    if found:
-        with open("progress.txt.", 'a') as file:
-            message = "Resolved bug number " + str(id) + "\n"
+    with open("progress.txt.", 'a') as file:
+        if(id > 0):
+            message ="[" + ctx.author + "] Resolved bug number " + str(id) + ", description: " + description +"\n"
             file.write(message)
-    else:
-        await ctx.send("Bug not found. Please check if the id is correct.")
+        else:
+            message ="[" + ctx.author + "] " + description + "\n"
+            file.write(message)
 
 @bot.command(name="report")
 async def report(ctx, name, *reason):
@@ -382,6 +371,8 @@ async def file(ctx, file):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("progress.txt"))
     elif(file == "reports.txt"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("reports.txt"))
+    elif(file == "meeting.txt"):
+        await ctx.send(f"Here is the {file} file: ", file = discord.File("meeting.txt"))
     elif(file == "todo"):
 
         await ctx.send("Here are your todo files: ")
@@ -402,8 +393,42 @@ async def file(ctx, file):
     
     else:
         await ctx.send("There are no such files currently")
-    
 
+
+@bot.command("workday")
+async def workday(ctx, user: discord.User, *, message: str):
+    try:
+        await user.send(f"Here are your tasks for today: ")
+        await user.send(message)
+    except discord.Forbidden:
+        await ctx.send("I can't DM that user. They might have DMs turned off.")
+
+@bot.command(name="poll")
+async def poll(ctx, *, content: str):
+    # Use regex to extract all quoted parts
+    import re
+    matches = re.findall(r'"(.*?)"', content)
+
+    if len(matches) < 3:
+        await ctx.send("You need to provide a question and at least two options. Format:\n"
+                       '`!poll "Your question?" "Option 1" "Option 2" ...`')
+        return
+
+    question = matches[0]
+    options = matches[1:]
+
+    if len(options) > 10:
+        await ctx.send("You can only have up to 10 options.")
+        return
+
+    emoji_list = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮', '🇯']
+    description = "\n".join(f"{emoji_list[i]} {option}" for i, option in enumerate(options))
+
+    embed = discord.Embed(title=f"📊 {question}", description=description, color=discord.Color.blurple())
+    poll_msg = await ctx.send(embed=embed)
+
+    for i in range(len(options)):
+        await poll_msg.add_reaction(emoji_list[i])
 
 async def progress_report():
 
