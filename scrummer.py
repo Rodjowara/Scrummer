@@ -260,10 +260,15 @@ async def voice(ctx, channel_name: str):
 
     members = voice_channel.members
 
+    now = datetime.now()
+    time = f"{now.day:02}.{now.month:02}.{now.year:02}. {now.hour:02}:{now.hour:02}"
+
     if members:
         member_names = ", ".join([member.display_name for member in members])
         with open('meeting.txt', 'w') as file:
+            file.write(f"Date of meeting: {time}")
             file.write(member_names)
+            file.write("\n")
     else:
         with open('meeting.txt', 'w') as file:
             file.write(f"No members are currently in '{channel_name}'.")
@@ -286,7 +291,7 @@ async def todo(ctx, priority: int, *, user_message: str):
 
     global index
     message = [None, priority, user_message]
-    filename = str(date.today()) + ".txt"
+    filename = "todo_" + str(date.today()) + ".txt"
     lines = None
     place = 0
 
@@ -318,7 +323,7 @@ async def todo(ctx, priority: int, *, user_message: str):
         file.writelines(lines)
     
     with open("progress.txt", 'a', encoding="utf-8") as file:
-        report = "Reported bug " + str(message[0]) + ", description: " + str(message[2]) + "\n"
+        report = f"[{ctx.author}] Reported bug {str(message[0])}, description: {str(message[2])} \n"
         file.write(report)    
 
     await ctx.send(f"Task {index} successfully submitted")
@@ -330,60 +335,72 @@ async def progress(ctx, id = 0, *description):
     if not setup_done:
         await wakeup(ctx)
 
+    now = datetime.now()
+    time = f"{now.day:02}.{now.month:02}.{now.year:02}. {now.hour:02}:{now.hour:02}"
+
     with open("progress.txt.", 'a') as file:
         if(id > 0):
-            message ="[" + ctx.author + "] Resolved bug number " + str(id) + ", description: " + description +"\n"
+            message =f"[{time}] [{ctx.author}] Resolved bug number {str(id)}, description: {description} \n"
             file.write(message)
         else:
-            message ="[" + ctx.author + "] " + description + "\n"
+            message = f"[{time}] [{ctx.author}]: {description} \n"
             file.write(message)
 
 @bot.command(name="report")
-async def report(ctx, name, *reason):
+async def report(ctx, user: discord.user, *reason):
+
+    global setup_done
+    if not setup_done:
+        await wakeup(ctx)
+
+    now = datetime.now()
+    time = f"{now.day:02}.{now.month:02}.{now.year:02}. {now.hour:02}:{now.hour:02}"
+    
+    with open("reports.txt", 'a') as file:
+        file.write(f"[{time}] Reported member {user} for reason: {reason}")
+
+@bot.command(name="file")
+async def file(ctx, file, exact = 0):
 
     global setup_done
     if not setup_done:
         await wakeup(ctx)
     
-    for guild in bot.guilds:
-        if(guild.name == server_name):
-            for member in guild.members:
-                if(member == name):
-
-                    with open("reports.txt", 'a') as file:
-                        file.write(f"Reported member {name} for reason: {reason}")
-
-                    break
-            break
-
-@bot.command(name="file")
-async def file(ctx, file):
-
-    global setup_done
-    if not setup_done:
-        await wakeup(ctx)
-
-    if(os.path.exists(file) and file != "all"):
-        await ctx.send(f"File {file} doesn't exist.")
+    if(exact > 0):
+        try:
+            await ctx.send(file = discord.File(file))
+        except ValueError:
+            await ctx.send("There are no such files currently")
+        
         return
 
-    if(file == "progress.txt"):
+    if(file == "progress.txt" or file == "progress"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("progress.txt"))
-    elif(file == "reports.txt"):
+
+    elif(file == "reports.txt" or file == "reports"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("reports.txt"))
-    elif(file == "meeting.txt"):
+
+    elif(file == "meeting.txt" or file == "meeting"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("meeting.txt"))
+
     elif(file == "todo"):
 
         await ctx.send("Here are your todo files: ")
         for filename in os.listdir("."):
-            if filename.endswith(".txt"):
+            if filename.startswith("todo"):
                 try:
-                    date_part = filename.split(".")[0] 
-                    parsed_date = datetime.strptime(date_part, "%Y-%m-%d")
                     await ctx.send(file = discord.File(filename))
                 except ValueError:
                     await ctx.send("There are no todo files currently")
+
+    elif(file == "workday"):
+        await ctx.send("Here are your workday files: ")
+        for filename in os.listdir("."):
+            if filename.startswith("workday"):
+                try:
+                    await ctx.send(file = discord.File(filename))
+                except ValueError:
+                    await ctx.send("There are no workday files currently")
 
     elif(file == "all"):
         await ctx.send("Here are all your files: ")
@@ -394,18 +411,25 @@ async def file(ctx, file):
     else:
         await ctx.send("There are no such files currently")
 
-
 @bot.command("workday")
+#ŽEŠĆI todo
 async def workday(ctx, user: discord.User, *, message: str):
     try:
         await user.send(f"Here are your tasks for today: ")
         await user.send(message)
+
+        filename = "workday_" + date.today() + ".txt"
+        with open(filename, 'a') as file:
+            file.write(f"Tasks for [{user}]:")
+            file.write(message)
+            file.write("\n")
+
     except discord.Forbidden:
         await ctx.send("I can't DM that user. They might have DMs turned off.")
 
 @bot.command(name="poll")
 async def poll(ctx, *, content: str):
-    # Use regex to extract all quoted parts
+    
     import re
     matches = re.findall(r'"(.*?)"', content)
 
@@ -429,6 +453,12 @@ async def poll(ctx, *, content: str):
 
     for i in range(len(options)):
         await poll_msg.add_reaction(emoji_list[i])
+
+@bot.command(name="delay")
+async def delay(ctx, id, *message):
+    print("placeholder")
+    #ŽEŠĆI todo
+    #zahtjeva revamp workday funkcije
 
 async def progress_report():
 
@@ -462,7 +492,7 @@ async def progress_report():
         
 
 async def bugreport(id, owner):
-    filename = str(date.today()) + ".txt"
+    filename = "todo_" + str(date.today()) + ".txt"
     try:
         await owner.send("Here's your bugreport file: ", file = discord.File(filename))
         print(f"File sent to {owner.name} (server owner).")
