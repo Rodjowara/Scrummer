@@ -289,22 +289,10 @@ async def todo(ctx, priority: int, *, user_message: str):
         await ctx.send("Priority out of range. Priority should be between 1 and 3")
         return
 
-    global index
-    message = [None, priority, user_message]
+    message = [priority, user_message]
     filename = "todo_" + str(date.today()) + ".txt"
     lines = None
     place = 0
-
-    if not os.path.exists(filename):
-        open(filename, "x")
-        index = 0
-    elif not index:
-        with open(filename, "r", encoding="utf-8") as file:
-            for line in file:
-                index += 1
-
-    index = index + 1
-    message[0] = index
 
     with open(filename, "r", encoding="utf-8") as file:
         lines = file.readlines()
@@ -323,13 +311,13 @@ async def todo(ctx, priority: int, *, user_message: str):
         file.writelines(lines)
     
     with open("progress.txt", 'a', encoding="utf-8") as file:
-        report = f"[{ctx.author}] Reported bug {str(message[0])}, description: {str(message[2])} \n"
+        report = f"{ctx.author} Reported task: {str(message[1])} \n"
         file.write(report)    
 
-    await ctx.send(f"Task {index} successfully submitted")
+    await ctx.send(f"Task successfully submitted")
 
 @bot.command(name="progress")
-async def progress(ctx, id = 0, *description):
+async def progress(ctx, id = 0, *, description:str):
 
     global setup_done
     if not setup_done:
@@ -340,14 +328,41 @@ async def progress(ctx, id = 0, *description):
 
     with open("progress.txt.", 'a') as file:
         if(id > 0):
-            message =f"[{time}] [{ctx.author}] Resolved bug number {str(id)}, description: {description} \n"
-            file.write(message)
+
+            lines = None
+            filename = f"workday_{ctx.author}.txt"
+            with open(filename, 'r') as file:
+                lines = file.readlines()
+
+            found = False
+            ind = -1
+            for line in lines:
+                ind += 1
+                if(line.startswith("deadline")):
+                    continue
+                if(int(line.split()[0]) == id):
+                    newline = line.split()
+                    newline[0] = 0
+                    newline = " ".join(newline)
+                    lines[ind] = newline
+                    found = True
+                    break
+            
+            if(found):
+                message = f"[{time}] {ctx.author} Resolved task number {str(id)}, description: {description} \n"
+                file.write(message)
+
+                with open(filename, 'w') as file:
+                    file.writelines(lines)
+            else:
+                await ctx.send(f"Task with id {id} was not assigned to you")            
+
         else:
-            message = f"[{time}] [{ctx.author}]: {description} \n"
+            message = f"[{time}] {ctx.author}: {description} \n"
             file.write(message)
 
 @bot.command(name="report")
-async def report(ctx, user: discord.user, *reason):
+async def report(ctx, user: discord.user, *, reason:str):
 
     global setup_done
     if not setup_done:
@@ -355,9 +370,17 @@ async def report(ctx, user: discord.user, *reason):
 
     now = datetime.now()
     time = f"{now.day:02}.{now.month:02}.{now.year:02}. {now.hour:02}:{now.hour:02}"
+
+    GUILD_OWNER = None
+    for guild in bot.guilds:
+        if guild.name == info.server_name:
+            GUILD_OWNER = guild.owner
+            break
+
+    await GUILD_OWNER.send(f"User {user} has been reported for reason: {reason}")
     
     with open("reports.txt", 'a') as file:
-        file.write(f"[{time}] Reported member {user} for reason: {reason}")
+        file.write(f"{user}, {reason}, {time}")
 
 @bot.command(name="file")
 async def file(ctx, file, exact = 0):
@@ -412,20 +435,72 @@ async def file(ctx, file, exact = 0):
         await ctx.send("There are no such files currently")
 
 @bot.command("workday")
-#ŽEŠĆI todo
-async def workday(ctx, user: discord.User, *, message: str):
-    try:
-        await user.send(f"Here are your tasks for today: ")
-        await user.send(message)
+async def workday(ctx, user: discord.User):
+    daily = []
+    weekly = []
+    end_of_week = []
 
-        filename = "workday_" + date.today() + ".txt"
-        with open(filename, 'a') as file:
-            file.write(f"Tasks for [{user}]:")
-            file.write(message)
-            file.write("\n")
+    await ctx.send(f"Collecting tasks for {user}. When you're done sending tasks, send 'send'")
 
-    except discord.Forbidden:
-        await ctx.send("I can't DM that user. They might have DMs turned off.")
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
+    
+    while True:
+        msg = bot.wait_for('message', check = check)
+
+        if(msg.content.lower() == 'send'):
+            if(not daily or not weekly):
+                await ctx.send("Please send some tasks first")
+            else:
+                break
+
+        deadline = msg.content.split()[0]
+
+        try:
+            if(int(deadline) == 1):
+                weekly.append(msg)
+            elif(int(deadline) == 0):
+                daily.append(msg)
+            elif(int(deadline) == 2):
+                end_of_week.append(msg)
+            else:
+                await ctx.send("The format is: [deadline: 1 -> week, 0 -> day] [task]")
+        except ValueError:
+            await ctx.send("The format is: [deadline: 1 -> week, 0 -> day] [task]")
+
+    send(ctx, user, daily, weekly, end_of_week)
+
+async def send(ctx, user, daily, weekly, end_of_week):
+    global index
+
+    filename = f"workday_{user}.txt"
+    with open(filename, 'a') as file:
+        file.write("\n")
+        deadline = datetime.now() + timedelta(days=1)
+        deadline = deadline.strftime("%d.%m.%y.")
+        file.write(f"Deadline:{deadline}")
+        for task in daily:
+            index += 1
+            file.write(f"{index} {task}")
+
+        file.write("\n")
+        deadline = datetime.now() + timedelta(weeks=1)
+        deadline = deadline.strftime("%d.%m.%y.")
+        file.write(f"Deadline:{deadline}")
+        for task in weekly:
+            index += 1
+            file.write(f"{index} {task}")
+
+        file.write("\n")
+        today = datetime.now()
+        days_to_friday = (4 - today.weekday()) % 7
+        deadline = today + timedelta(days=days_to_friday)
+        deadline = deadline.strftime("%d.%m.%y.")
+        for task in end_of_week:
+            index += 1
+            file.write(f"{index} {task}")
+
+    await user.send("Here are your tasks: ", file=discord.File(filename))
 
 @bot.command(name="poll")
 async def poll(ctx, *, content: str):
@@ -455,10 +530,11 @@ async def poll(ctx, *, content: str):
         await poll_msg.add_reaction(emoji_list[i])
 
 @bot.command(name="delay")
-async def delay(ctx, id, *message):
-    print("placeholder")
-    #ŽEŠĆI todo
-    #zahtjeva revamp workday funkcije
+async def delay(ctx, id, *, message):
+
+    filename = f"delay_{ctx.author}.txt"
+    with open(filename, 'a'):
+        file.write(f"{id}, {message}")
 
 async def progress_report():
 
@@ -489,7 +565,6 @@ async def progress_report():
                 print(f"Failed to send file: {e}")
     else:
         print(f"Channel with ID {info.progress_channel} not found.")
-        
 
 async def bugreport(id, owner):
     filename = "todo_" + str(date.today()) + ".txt"
