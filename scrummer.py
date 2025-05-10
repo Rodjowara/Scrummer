@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, time
 import os
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+import re
 
 class Info:
     server_name = None
@@ -13,6 +14,7 @@ class Info:
     meeting_time = None
     current_week = None
     progress_channel = None
+    index = 0
 
 TOKEN = "MTMwMDQwNDk3OTQyMDM2ODkxNw.GY_yyw.nZjvzf-4KDxCtGfxm0CQ6Chm-BUIWLrpDuzqGE"
 intents = discord.Intents.default()
@@ -25,7 +27,8 @@ info = Info()
 setup_done = 0
 server_name = None
 wokenup = 0
-index = 0
+
+working_directory = "C:/Users/rodak/Documents/završni/files"
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
@@ -34,12 +37,11 @@ async def wakeup(ctx):
     global setup_done
     global wokenup
     global server_name
+    global working_directory
+
+    os.chdir(working_directory)
 
     server_name = str(ctx.guild)
-    await ctx.send(f'Hello, {server_name}!')
-
-    wokenup = 1
-
     file_name = 'setup_' + server_name + '.txt'
 
     if os.path.isfile(file_name):
@@ -68,9 +70,15 @@ async def wakeup(ctx):
             line = file.readline().strip().split(':')
             info.progress_channel = line[1]
 
+            line = file.readline().strip().split(':')
+            info.current_week = line[1]
+
+            line = file.readline().strip().split(':')
+            info.index = int(line[1])
+
         week_number = date.today().isocalendar()[1]
         tempdate = datetime.strptime(info.startdate, "%d.%m.%Y.").date().isocalendar()[1]
-        current_week = week_number - tempdate
+        current_week = week_number - tempdate + 1
 
         if current_week < 0:
             current_week = 52 - tempdate + week_number
@@ -78,14 +86,28 @@ async def wakeup(ctx):
         if current_week != info.current_week:
             lines[6] = "current_week:" + str(current_week) + "\n"
             info.current_week = current_week
+
             with open(file_name, 'w') as file:
                 for line in lines:
                     line = ''.join(line)
                     file.write(line)
+
             with open("progress.txt", 'a') as file:
                 file.write('\n')
                 wrote = "Week " + str(current_week) + ":\n"
                 file.write(wrote)
+
+            lines = None
+            with open(f"setup_{info.server_name}.txt", 'r') as file:
+                lines = file.readlines()
+
+            lines[-2] = f"current_week:{info.current_week}\n"
+            with open(f"setup_{info.server_name}.txt", 'w') as file:
+                file.writelines(lines)
+
+    else:
+        await ctx.send("Setup is not done yet")
+        return
 
     start = info.startdate.split(".")
     times = info.meeting_time.split(":")
@@ -94,9 +116,9 @@ async def wakeup(ctx):
     # scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
 
     start_time = datetime.now()
-    scheduler.add_job(progress_report, 'interval', minutes=2, start_date=start_time)
+    # scheduler.add_job(progress_report, 'interval', minutes=2, start_date=start_time)
 
-    scheduler.start()
+    # scheduler.start()
 
     send_time = info.meeting_time.split(':')
     hours = int(send_time[0])
@@ -104,13 +126,13 @@ async def wakeup(ctx):
     target_time = time(hour=hours, minute=minutes)
     times = (datetime.combine(datetime.today(), target_time) - timedelta(minutes=30))
     
-    GUILD_ID = None
-    GUILD_OWNER = None
-    for guild in bot.guilds:
-        if guild.name == info.server_name:
-            GUILD_ID = guild.id
-            GUILD_OWNER = guild.owner
-            break
+    # GUILD_ID = None
+    # GUILD_OWNER = None
+    # for guild in bot.guilds:
+    #     if guild.name == info.server_name:
+    #         GUILD_ID = guild.id
+    #         GUILD_OWNER = guild.owner
+    #         break
 
     # scheduler.add_job(
     #     bugreport,
@@ -118,23 +140,30 @@ async def wakeup(ctx):
     #     args=[GUILD_ID, GUILD_OWNER]
     # )
 
-    scheduler.add_job(
-        bugreport,
-        CronTrigger(minute='*/2'), 
-        args=[GUILD_ID, GUILD_OWNER]
-    )
+    # scheduler.add_job(
+    #     bugreport,
+    #     CronTrigger(minute='*/2'), 
+    #     args=[GUILD_ID, GUILD_OWNER]
+    # )
 
-    print(f'{bot.user} has connected to Discord')    
+    print(f'{bot.user} has connected to Discord')
+    
+    await ctx.send(f'Hello, {server_name}!')
+
+    wokenup = 1
 
 @bot.command(name="setup")
 async def setup(ctx):
     global setup_done
     global server_name
     global wokenup
+    global working_directory
 
     if setup_done:
         await ctx.send('Setup is already completed')
         return
+    
+    os.chdir(working_directory)
 
     info.server_name = str(ctx.guild)
     server_name = str(ctx.guild)
@@ -213,6 +242,15 @@ async def setup(ctx):
 
             message += (f'Progress channel for this project is {info.progress_channel}\n')
 
+    week_number = date.today().isocalendar()[1]
+    tempdate = datetime.strptime(info.startdate, "%d.%m.%Y.").date().isocalendar()[1]
+    current_week = week_number - tempdate + 1
+
+    if current_week < 0:
+        current_week = 52 - tempdate + week_number
+    
+    info.current_week = current_week
+
     if i != 4:
         await ctx.send('Invalid file sent. Please send a valid setup file.')
         return
@@ -235,7 +273,11 @@ async def setup(ctx):
         file.write(f'enddate:{info.enddate}\n')
         file.write(f'meeting_time:{info.meeting_time}\n')
         file.write(f'progress_channel:{info.progress_channel}\n')
-        file.write(f'current_week:1\n')
+        file.write(f'current_week:{info.current_week}\n')
+        file.write(f'index:{info.index}\n')
+
+    with open('progress.txt', 'w') as file:
+        file.write(f"Week,{info.current_week}\n")
 
     # start = info.startdate.split(".")
     # time = info.meeting_time.split(":")
@@ -243,17 +285,22 @@ async def setup(ctx):
     #start_time = datetime(start[2], start[1], start[0], time[0], time[1])
     #scheduler.add_job(progress_report, 'interval', weeks=1, start_date = start_time)
 
-    start_time = datetime.now()
-    scheduler.add_job(progress_report, 'interval', minutes=2, start_date=start_time)
+    # start_time = datetime.now()
+    # scheduler.add_job(progress_report, 'interval', minutes=2, start_date=start_time)
 
-    scheduler.start()
+    # scheduler.start()
 
     setup_done = 1
 
 @bot.command(name= "voice")
 async def voice(ctx, channel_name: str):
+
+    global setup_done
+    if not setup_done:
+        await wakeup(ctx)
+
     voice_channel = discord.utils.get(ctx.guild.voice_channels, name=channel_name)
-    
+
     if not voice_channel:
         await ctx.send(f"Voice channel '{channel_name}' not found.")
         return
@@ -261,17 +308,18 @@ async def voice(ctx, channel_name: str):
     members = voice_channel.members
 
     now = datetime.now()
-    time = f"{now.day:02}.{now.month:02}.{now.year:02}. {now.hour:02}:{now.hour:02}"
+    time = f"{now.day:02}.{now.month:02}.{now.year:02},{now.hour:02}:{now.hour:02}"
 
     if members:
-        member_names = ", ".join([member.display_name for member in members])
-        with open('meeting.txt', 'w') as file:
-            file.write(f"Date of meeting: {time}")
+        member_names = " ".join([member.display_name for member in members])
+        with open('meeting.txt', 'a') as file:
+            file.write(f"{time},")
+            file.write(f"{channel_name},")
             file.write(member_names)
             file.write("\n")
     else:
-        with open('meeting.txt', 'w') as file:
-            file.write(f"No members are currently in '{channel_name}'.")
+        with open('meeting.txt', 'a') as file:
+            file.write(f"No members are currently in '{channel_name}'.\n")
 
     try:
         await ctx.send(file=discord.File('meeting.txt'))
@@ -280,7 +328,8 @@ async def voice(ctx, channel_name: str):
 
 @bot.command(name= "todo")
 async def todo(ctx, priority: int, *, user_message: str):
-    
+    info.index += 1
+
     global setup_done
     if not setup_done:
         await wakeup(ctx)
@@ -289,32 +338,48 @@ async def todo(ctx, priority: int, *, user_message: str):
         await ctx.send("Priority out of range. Priority should be between 1 and 3")
         return
 
-    message = [priority, user_message]
+    message = [priority, info.index, user_message]
     filename = "todo_" + str(date.today()) + ".txt"
     lines = None
     place = 0
 
-    with open(filename, "r", encoding="utf-8") as file:
-        lines = file.readlines()
-        for line in lines:
-            line = line.split()
-            if int(line[1]) < priority:
-                break
-            else:
-                place += 1
+    if os.path.isfile(filename):
+        with open(filename, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+            for line in lines:
+                line = line.split(",")
+                if int(line[0]) < priority:
+                    break
+                else:
+                    place += 1
 
-    write = " ".join(map(str, message))
-    write += "\n"
-    lines.insert(place, write)
+        write = ",".join(map(str, message))
+        write += "\n"
+        lines.insert(place, write)
 
-    with open(filename, "w", encoding="utf-8") as file:
-        file.writelines(lines)
+        with open(filename, "w", encoding="utf-8") as file:
+            file.writelines(lines)
+
+    else:
+        with open(filename, "w", encoding="utf-8") as file:
+            write = ",".join(map(str, message))
+            write += "\n"
+            file.write(write)
     
     with open("progress.txt", 'a', encoding="utf-8") as file:
-        report = f"{ctx.author} Reported task: {str(message[1])} \n"
+        report = f"{ctx.author} | Reported task | {str(message[2])} | {info.index} \n"
         file.write(report)    
 
-    await ctx.send(f"Task successfully submitted")
+    await ctx.send(f"Task {info.index} successfully submitted")
+
+    lines = None
+    with open(f"setup_{info.server_name}.txt", "r") as file:
+        lines = file.readlines()
+    
+    lines[-1] = f"index:{info.index}"
+    with open(f"setup_{info.server_name}.txt", "w") as file:
+        file.writelines(lines)
+
 
 @bot.command(name="progress")
 async def progress(ctx, id = 0, *, description:str):
@@ -349,7 +414,7 @@ async def progress(ctx, id = 0, *, description:str):
                     break
             
             if(found):
-                message = f"[{time}] {ctx.author} Resolved task number {str(id)}, description: {description} \n"
+                message = f"{time} | {ctx.author} | Resolved task number {str(id)} | description: {description} \n"
                 file.write(message)
 
                 with open(filename, 'w') as file:
@@ -358,11 +423,11 @@ async def progress(ctx, id = 0, *, description:str):
                 await ctx.send(f"Task with id {id} was not assigned to you")            
 
         else:
-            message = f"[{time}] {ctx.author}: {description} \n"
+            message = f"{time} | {ctx.author} | {description} \n"
             file.write(message)
 
 @bot.command(name="report")
-async def report(ctx, user: discord.user, *, reason:str):
+async def report(ctx, user: discord.User, *, reason:str):
 
     global setup_done
     if not setup_done:
@@ -380,7 +445,7 @@ async def report(ctx, user: discord.user, *, reason:str):
     await GUILD_OWNER.send(f"User {user} has been reported for reason: {reason}")
     
     with open("reports.txt", 'a') as file:
-        file.write(f"{user}, {reason}, {time}")
+        file.write(f"{user},{reason},{time}")
 
 @bot.command(name="file")
 async def file(ctx, file, exact = 0):
@@ -392,9 +457,8 @@ async def file(ctx, file, exact = 0):
     if(exact > 0):
         try:
             await ctx.send(file = discord.File(file))
-        except ValueError:
+        except FileNotFoundError:
             await ctx.send("There are no such files currently")
-        
         return
 
     if(file == "progress.txt" or file == "progress"):
@@ -405,6 +469,9 @@ async def file(ctx, file, exact = 0):
 
     elif(file == "meeting.txt" or file == "meeting"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("meeting.txt"))
+    
+    elif(file == "setup" or file == f"setup_{info.server_name}.txt"):
+        await ctx.send(f"Here is the {file} file: ", file = discord.File(f"setup_{info.server_name}.txt"))
 
     elif(file == "todo"):
 
@@ -440,67 +507,110 @@ async def workday(ctx, user: discord.User):
     weekly = []
     end_of_week = []
 
+    global setup_done
+    if not setup_done:
+        await wakeup(ctx)
+
     await ctx.send(f"Collecting tasks for {user}. When you're done sending tasks, send 'send'")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
     
     while True:
-        msg = bot.wait_for('message', check = check)
+        msg = await bot.wait_for('message', check = check)
 
-        if(msg.content.lower() == 'send'):
-            if(not daily or not weekly):
+        if(msg.content.strip().lower() == 'send'):
+            if(not daily and not weekly and not end_of_week):
                 await ctx.send("Please send some tasks first")
             else:
+                await ctx.send(f"Sending tasks to {user}")
                 break
+
+        match = re.match(r"\d \d+ (.+)", msg.content)
+
+        if not match:
+            await ctx.send("Incorrect message format. The format is: <deadline: 1 -> week, 0 -> day> <task number: 0 -> new task, anything else -> existing todo task> <task>")
+            continue
 
         deadline = msg.content.split()[0]
 
         try:
             if(int(deadline) == 1):
-                weekly.append(msg)
+                weekly.append(msg.content)
             elif(int(deadline) == 0):
-                daily.append(msg)
+                daily.append(msg.content)
             elif(int(deadline) == 2):
-                end_of_week.append(msg)
+                end_of_week.append(msg.content)
             else:
-                await ctx.send("The format is: [deadline: 1 -> week, 0 -> day] [task]")
+                await ctx.send("The format is: <deadline: 1 -> week, 0 -> day> <task number: 0 -> new task, anything else -> existing todo task> <task>")
         except ValueError:
-            await ctx.send("The format is: [deadline: 1 -> week, 0 -> day] [task]")
+            await ctx.send("The format is: <deadline: 1 -> week, 0 -> day> <task number: 0 -> new task, anything else -> existing todo task> <task>")
 
-    send(ctx, user, daily, weekly, end_of_week)
+    await send(user, daily, weekly, end_of_week)
 
-async def send(ctx, user, daily, weekly, end_of_week):
-    global index
+async def send(user, daily, weekly, end_of_week):
 
     filename = f"workday_{user}.txt"
     with open(filename, 'a') as file:
-        file.write("\n")
         deadline = datetime.now() + timedelta(days=1)
         deadline = deadline.strftime("%d.%m.%y.")
-        file.write(f"Deadline:{deadline}")
-        for task in daily:
-            index += 1
-            file.write(f"{index} {task}")
+        for entry in daily:
+            file.write(f"Deadline,{deadline},")
+            if(int(entry.split()[1]) == 0):
+                info.index += 1
+                task_number = info.index
+            else:
+                task_number = entry.split()[1]
 
-        file.write("\n")
+            match = re.match(r"\d \d+ (.+)", entry)
+            if match:
+                result = match.group(1)
+
+            file.write(f"{task_number},{result}\n")
+
         deadline = datetime.now() + timedelta(weeks=1)
         deadline = deadline.strftime("%d.%m.%y.")
-        file.write(f"Deadline:{deadline}")
-        for task in weekly:
-            index += 1
-            file.write(f"{index} {task}")
+        for entry in weekly:
+            file.write(f"Deadline,{deadline},")
+            if(int(entry.split()[1]) == 0):
+                info.index += 1
+                task_number = info.index
+            else:
+                task_number = entry.split()[1]
 
-        file.write("\n")
+            match = re.match(r"\d \d+ (.+)", entry)
+            if match:
+                result = match.group(1)
+
+            file.write(f"{task_number},{result}\n")
+
         today = datetime.now()
         days_to_friday = (4 - today.weekday()) % 7
         deadline = today + timedelta(days=days_to_friday)
         deadline = deadline.strftime("%d.%m.%y.")
-        for task in end_of_week:
-            index += 1
-            file.write(f"{index} {task}")
+        for entry in end_of_week:
+            file.write(f"Deadline,{deadline},")
+            if(int(entry.split()[1]) == 0):
+                info.index += 1
+                task_number = info.index
+            else:
+                task_number = entry.split()[1]
+
+            match = re.match(r"\d \d+ (.+)", entry)
+            if match:
+                result = match.group(1)
+
+            file.write(f"{task_number},{result}\n")
 
     await user.send("Here are your tasks: ", file=discord.File(filename))
+
+    lines = None
+    with open(f"setup_{info.server_name}.txt", "r") as file:
+        lines = file.readlines()
+    
+    lines[-1] = f"index:{info.index}"
+    with open(f"setup_{info.server_name}.txt", "w") as file:
+        file.writelines(lines)
 
 @bot.command(name="poll")
 async def poll(ctx, *, content: str):
@@ -510,7 +620,7 @@ async def poll(ctx, *, content: str):
 
     if len(matches) < 3:
         await ctx.send("You need to provide a question and at least two options. Format:\n"
-                       '`!poll "Your question?" "Option 1" "Option 2" ...`')
+                       '`$poll "Your question?" "Option 1" "Option 2" ...`')
         return
 
     question = matches[0]
@@ -532,9 +642,30 @@ async def poll(ctx, *, content: str):
 @bot.command(name="delay")
 async def delay(ctx, id, *, message):
 
+    global setup_done
+    if not setup_done:
+        await wakeup(ctx)
+
+    feliname = f"workday_{ctx.author}.txt"
+    lines = None
+    with open(feliname, 'r') as file:
+        lines = file.readlines()
+    
+    flag = 0
+    for line in lines:
+        if(line.split(",")[2] == id):
+            flag = 1
+            break
+
+    if(not flag):
+        await ctx.send("This task was not assigned to you")
+        return
+
     filename = f"delay_{ctx.author}.txt"
-    with open(filename, 'a'):
-        file.write(f"{id}, {message}")
+    with open(filename, 'a') as file:
+        file.write(f"{id},{message}\n")
+
+    await ctx.send("Delay noted")
 
 async def progress_report():
 
@@ -569,7 +700,7 @@ async def progress_report():
 async def bugreport(id, owner):
     filename = "todo_" + str(date.today()) + ".txt"
     try:
-        await owner.send("Here's your bugreport file: ", file = discord.File(filename))
+        await owner.send("Here's your todo file for today: ", file = discord.File(filename))
         print(f"File sent to {owner.name} (server owner).")
     except Exception as e:
         print(f"Failed to send file to the server owner: {e}")
