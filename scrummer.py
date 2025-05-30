@@ -28,7 +28,7 @@ setup_done = 0
 server_name = None
 wokenup = 0
 
-working_directory = "C:/Users/rodak/Documents/završni/files"
+working_directory = "C:/Users/rodak/Documents/zavrsni/files"
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
@@ -391,7 +391,7 @@ async def progress(ctx, id = 0, *, description:str):
     now = datetime.now()
     time = f"{now.day:02}.{now.month:02}.{now.year:02}. {now.hour:02}:{now.hour:02}"
 
-    with open("progress.txt.", 'a') as file:
+    with open("progress.txt.", 'a') as progress:
         if(id > 0):
 
             lines = None
@@ -405,17 +405,18 @@ async def progress(ctx, id = 0, *, description:str):
                 ind += 1
                 if(line.startswith("deadline")):
                     continue
-                if(int(line.split()[0]) == id):
-                    newline = line.split()
-                    newline[0] = 0
-                    newline = " ".join(newline)
+                if(int(line.split(",")[2]) == id):
+                    newline = line.split(",")
+                    newline[2] = "0"
+                    print(f"Newline: {newline}")
+                    newline = ",".join(newline)
                     lines[ind] = newline
                     found = True
                     break
             
             if(found):
                 message = f"{time} | {ctx.author} | Resolved task number {str(id)} | description: {description} \n"
-                file.write(message)
+                progress.write(message)
 
                 with open(filename, 'w') as file:
                     file.writelines(lines)
@@ -424,7 +425,7 @@ async def progress(ctx, id = 0, *, description:str):
 
         else:
             message = f"{time} | {ctx.author} | {description} \n"
-            file.write(message)
+            progress.write(message)
 
 @bot.command(name="report")
 async def report(ctx, user: discord.User, *, reason:str):
