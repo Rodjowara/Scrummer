@@ -83,7 +83,9 @@ async def wakeup(ctx):
         if current_week < 0:
             current_week = 52 - tempdate + week_number
 
-        if current_week != info.current_week:
+        if str(current_week) != info.current_week:
+            print(f"Info.current week: {type(info.current_week)}")
+            print(f"Current week: {type(current_week)}")
             lines[6] = "current_week:" + str(current_week) + "\n"
             info.current_week = current_week
 
@@ -277,7 +279,7 @@ async def setup(ctx):
         file.write(f'index:{info.index}\n')
 
     with open('progress.txt', 'w') as file:
-        file.write(f"Week,{info.current_week}\n")
+        file.write(f"Week {info.current_week}:\n")
 
     # start = info.startdate.split(".")
     # time = info.meeting_time.split(":")
@@ -408,7 +410,6 @@ async def progress(ctx, id = 0, *, description:str):
                 if(int(line.split(",")[2]) == id):
                     newline = line.split(",")
                     newline[2] = "0"
-                    print(f"Newline: {newline}")
                     newline = ",".join(newline)
                     lines[ind] = newline
                     found = True

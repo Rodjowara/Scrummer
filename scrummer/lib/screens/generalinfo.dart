@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 class GeneralInfo extends StatefulWidget{
   final String folderPath;
+  final Map<String, String> users;
 
   const GeneralInfo({
     super.key,
-    required this.folderPath
+    required this.folderPath,
+    required this.users
   });
 
   @override
@@ -17,7 +18,6 @@ class GeneralInfo extends StatefulWidget{
 
 class GeneralInfoState extends State<GeneralInfo> {
 
-  Map<String, String> users = {};
   Map<String, String> data = {};
   double completion = 0.0;
 
@@ -36,16 +36,12 @@ class GeneralInfoState extends State<GeneralInfo> {
 
     final file1 = File('${widget.folderPath}/initialise.txt');
     final lines = await file1.readAsLines();
-    final Map<String, String> loadedUsers = {};
     final Map<String, String> loadedData = {};
 
     for(var line in lines){
       final parts = line.split("-");
 
-      if(parts[0] == "role"){
-        final user = parts[1].split(":");
-        loadedUsers[user[0].trim()] = user[1].trim();
-      }else if(parts[0] == "startdate"){
+      if(parts[0] == "startdate"){
         loadedData[parts[0].trim()] = parts[1].trim();
       }else if(parts[0] == "enddate"){
         loadedData[parts[0].trim()] = parts[1].trim();
@@ -78,7 +74,6 @@ class GeneralInfoState extends State<GeneralInfo> {
     }
 
     setState(() {
-      users = loadedUsers;
       data = loadedData;
     });
   }
@@ -88,7 +83,7 @@ class GeneralInfoState extends State<GeneralInfo> {
     double tasks = 0;
     double completed = 0;
 
-    for(var entry in users.entries){
+    for(var entry in widget.users.entries){
 
       final filename = 'workday_${entry.key}.txt';
       final file = File('${widget.folderPath}/$filename');
@@ -169,7 +164,7 @@ class GeneralInfoState extends State<GeneralInfo> {
                      alignment: WrapAlignment.center, // center horizontally inside Wrap
                      spacing: 12,
                       runSpacing: 8,
-                     children: users.entries.map((entry) {
+                     children: widget.users.entries.map((entry) {
                         return SizedBox(
                          width: itemWidth,
                          child: Column(

@@ -18,6 +18,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? folderPath;
   String? selectedCategory;
+  Map<String, String> users = {};
 
   final List<String> viewOptions = [
     "General Information",
@@ -26,6 +27,33 @@ class _HomePageState extends State<HomePage> {
     "Meetings",
     "Reports"
   ];
+
+  Future<void> loadFolder() async{
+    await pickFile();
+    if(folderPath != null){
+      await loadUsers();
+    }
+  }
+
+  Future<void> loadUsers() async{
+
+    final file = File('$folderPath/initialise.txt');
+    final lines = await file.readAsLines();
+    final Map<String, String> loadedUsers = {};
+
+    for(var line in lines){
+      final parts = line.split("-");
+
+      if(parts[0] == "role"){
+        final user = parts[1].split(":");
+        loadedUsers[user[0].trim()] = user[1].trim();
+      }
+    }
+
+    setState(() {
+      users = loadedUsers;
+    });
+  }
 
   Future<void> pickFile() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
@@ -60,21 +88,20 @@ class _HomePageState extends State<HomePage> {
   void navigateToPage(String selectedOption){
     
     if(selectedOption == "General Information"){
-      Navigator.push(context, MaterialPageRoute(builder: (_) => GeneralInfo(folderPath: folderPath ?? "No folder selected")));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => GeneralInfo(folderPath: folderPath ?? "No folder selected", users: users,)));
     }else if(selectedOption == "Progress"){
-      Navigator.push(context, MaterialPageRoute(builder: (_) => Progress(folderPath: folderPath ?? "No folder selected")));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Progress(folderPath: folderPath ?? "No folder selected", users: users)));
     }else if(selectedOption == "Tasks & Delays"){
-      Navigator.push(context, MaterialPageRoute(builder: (_) => TasksDelays(folderPath: folderPath ?? "No folder selected")));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => TasksDelays(folderPath: folderPath ?? "No folder selected", users: users)));
     }else if(selectedOption == "Meetings"){
-      Navigator.push(context, MaterialPageRoute(builder: (_) => Meetings(folderPath: folderPath ?? "No folder selected")));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Meetings(folderPath: folderPath ?? "No folder selected", users: users)));
     }else if(selectedOption == "Reports"){
-      Navigator.push(context, MaterialPageRoute(builder: (_) => Reports(folderPath: folderPath ?? "No folder selected")));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => Reports(folderPath: folderPath ?? "No folder selected", users: users)));
     }else{
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Page for "$selectedOption" not yet implemented'))
       );
     }
-
   }
 
   @override
@@ -96,7 +123,7 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 40),
               ElevatedButton(
-                onPressed: pickFile,
+                onPressed: loadFolder,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(200, 50),
                   padding: const EdgeInsets.only(bottom: 12)
