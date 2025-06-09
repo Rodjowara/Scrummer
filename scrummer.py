@@ -16,6 +16,28 @@ class Info:
     progress_channel = None
     index = 0
 
+from discord.ext import commands
+import discord
+
+class CustomHelpCommand(commands.HelpCommand):
+    def get_command_signature(self, command):
+        # Removes the auto-generated argument signature
+        return f"{self.clean_prefix}{command.qualified_name}"
+
+    async def send_command_help(self, command):
+        embed = discord.Embed(
+            title=f"Help for `{command.name}`",
+            description=command.help or command.brief or "No description.",
+            color=discord.Color.blue()
+        )
+
+        if command.description:
+            embed.add_field(name="Details", value=command.description, inline=False)
+
+        channel = self.get_destination()
+        await channel.send(embed=embed)
+
+
 TOKEN = "MTMwMDQwNDk3OTQyMDM2ODkxNw.GY_yyw.nZjvzf-4KDxCtGfxm0CQ6Chm-BUIWLrpDuzqGE"
 intents = discord.Intents.default()
 intents.message_content = True
@@ -32,7 +54,8 @@ working_directory = "C:/Users/rodak/Documents/zavrsni/files"
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
-@bot.command(name= 'wakeup')
+@bot.command(name= 'wakeup',
+             help="Waking up the bot. Use after starting the bot")
 async def wakeup(ctx):
     global setup_done
     global wokenup
@@ -154,7 +177,8 @@ async def wakeup(ctx):
 
     wokenup = 1
 
-@bot.command(name="setup")
+@bot.command(name="setup",
+             help="Initial bot setup. Use on start of Sprint, send a setup file")
 async def setup(ctx):
     global setup_done
     global server_name
@@ -294,7 +318,10 @@ async def setup(ctx):
 
     setup_done = 1
 
-@bot.command(name= "voice")
+@bot.command(name= "voice",
+             help="Documenting members present on a meeting" \
+             + "\n\nArguments:"
+             + "\n  channel_name: name of the voice channel where the meeting is taking place")
 async def voice(ctx, channel_name: str):
 
     global setup_done
@@ -328,7 +355,11 @@ async def voice(ctx, channel_name: str):
     except Exception as e:
         await ctx.send(f"Error sending file: {e}")
 
-@bot.command(name= "todo")
+@bot.command(name= "todo",
+             help="Reporting things that need to be done, be it bugs or anything else" \
+             + "\n\nArguments:"
+             + "\n  priority: 1 - 3, 3 is the highest"
+             + "\n  user_message: short description")
 async def todo(ctx, priority: int, *, user_message: str):
     info.index += 1
 
@@ -383,7 +414,11 @@ async def todo(ctx, priority: int, *, user_message: str):
         file.writelines(lines)
 
 
-@bot.command(name="progress")
+@bot.command(name="progress",
+             help="Reporting progress"
+             + "\n\nArguments:"
+             + "\n  id: id of the task if you've completed it, use 0 for reporting everything else"
+             + "\n  description: a short description of completed work")
 async def progress(ctx, id = 0, *, description:str):
 
     global setup_done
@@ -428,7 +463,11 @@ async def progress(ctx, id = 0, *, description:str):
             message = f"{time} | {ctx.author} | {description} \n"
             progress.write(message)
 
-@bot.command(name="report")
+@bot.command(name="report",
+             help="Reporting users"
+             + "\n\nArguments:"
+             + "\n  user: @tag of the user you want to report"
+             + "\n  reason: reason behind the report")
 async def report(ctx, user: discord.User, *, reason:str):
 
     global setup_done
@@ -449,7 +488,11 @@ async def report(ctx, user: discord.User, *, reason:str):
     with open("reports.txt", 'a') as file:
         file.write(f"{user},{reason},{time}")
 
-@bot.command(name="file")
+@bot.command(name="file",
+             help="Retrieving various generated files" \
+             + "\n\nArguments:"
+             + "\n  file: name of the file, or the full name with extension if you know it"
+             + "\n  exact: put a positive value if you know the exact name of the file, leave empty otherwise")
 async def file(ctx, file, exact = 0):
 
     global setup_done
@@ -503,7 +546,17 @@ async def file(ctx, file, exact = 0):
     else:
         await ctx.send("There are no such files currently")
 
-@bot.command("workday")
+@bot.command(name="workday", 
+             help="Assigning tasks to team members. Do not use if you are not the leader" \
+            + "\n\nArguments:"
+            + "\n   user: @tag of the user you want to give tasks to"
+            + "\n   after that, type tasks in the format:"
+            + "<deadline><task number><task>"
+            + "\n   deadline: 1 -> end of week"
+            + "\n             0 -> end of day"
+            + "\n   task number: 0 -> new task,"
+            + "\n                or any task number that already exists in todo files"
+            + "\n   When you are done sending tasks, send 'send' ")
 async def workday(ctx, user: discord.User):
     daily = []
     weekly = []
@@ -614,7 +667,11 @@ async def send(user, daily, weekly, end_of_week):
     with open(f"setup_{info.server_name}.txt", "w") as file:
         file.writelines(lines)
 
-@bot.command(name="poll")
+@bot.command(name="poll", 
+             help="Creating polls" \
+             + "\n\nArguments: "
+            + '\n   content: questions and options in the format: <"Question?"> <"Option 1"> <"Option 2"> ...'
+            + "\n   After the poll ends, it is recommended to send the results via the progress command")
 async def poll(ctx, *, content: str):
     
     import re
@@ -641,7 +698,11 @@ async def poll(ctx, *, content: str):
     for i in range(len(options)):
         await poll_msg.add_reaction(emoji_list[i])
 
-@bot.command(name="delay")
+@bot.command(name="delay", 
+             help="Reporting delays for your tasks"
+             + "\n\nArguments:"
+             + "\n  id: The task ID you want to report a delay for"
+             + "\n  message: Short description, why the task is delayed")
 async def delay(ctx, id, *, message):
 
     global setup_done

@@ -118,7 +118,7 @@ class GeneralInfoState extends State<GeneralInfo> {
      body: Align(
        alignment: Alignment.topCenter, // Align content horizontally center but top vertically
        child: ConstrainedBox(
-         constraints: BoxConstraints(maxWidth: 600), // max width to avoid stretching
+         constraints: BoxConstraints(maxWidth: 1200), // max width to avoid stretching
          child: Padding(
            padding: const EdgeInsets.all(16),
             child: ListView(

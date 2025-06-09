@@ -7,6 +7,7 @@ import 'generalinfo.dart';
 import 'progress.dart';
 import 'tasksdelays.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -32,6 +33,23 @@ class _HomePageState extends State<HomePage> {
     await pickFile();
     if(folderPath != null){
       await loadUsers();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadSavedFolderPath();
+  }
+
+  Future<void> loadSavedFolderPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPath = prefs.getString('savedFolderPath');
+    if (savedPath != null) {
+      setState(() {
+        folderPath = savedPath;
+      });
+      await loadUsers(); // If you want to load users immediately when a folder is loaded
     }
   }
 
@@ -80,8 +98,9 @@ class _HomePageState extends State<HomePage> {
         setState(() {
             folderPath = selectedDirectory;
         });
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setString('savedFolderPath', selectedDirectory);
       }
-
     }
   }
 
