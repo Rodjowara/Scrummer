@@ -442,7 +442,8 @@ async def todo(ctx, priority: int, *, user_message: str):
              help="Reporting progress"
              + "\n\nArguments:"
              + "\n  id: id of the task if you've completed it, use 0 for reporting everything else"
-             + "\n  description: a short description of completed work")
+             + "\n  description: a short description of completed work"
+             + "\n  existing: number of hours to be added to the task. Put 0 if you're not reporting the task, or if you're reporting the task completion")
 async def progress(ctx, id = 0, existing = 0, *, description:str):
 
     global setup_done
