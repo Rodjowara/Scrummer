@@ -40,14 +40,18 @@ class TasksDelaysState extends State<TasksDelays> {
       final fileTasks = File(filenameTasks);
       final fileDelays = File(filenameDelays);
 
+      bool exists = true;
       if(!await fileTasks.exists()){
         continue;
       }else if(!await fileDelays.exists()){
-        continue;
+        exists = false;
       }
 
       final tasksLines = await fileTasks.readAsLines();
-      final delaysLines = await fileDelays.readAsLines();
+      List<String> delaysLines = [];
+      if(exists){
+        delaysLines = await fileDelays.readAsLines();
+      }
 
       Set<String> delayed = <String>{};
 
@@ -56,9 +60,11 @@ class TasksDelaysState extends State<TasksDelays> {
       loadedTasks[entry.key]!.putIfAbsent("delayed", () => []);
       loadedTasks[entry.key]!.putIfAbsent("unfinished", () => []);
 
-      for(var line in delaysLines){
-        final parts = line.split(",");
-        delayed.add(parts[0].trim());
+      if(exists){
+        for(var line in delaysLines){
+          final parts = line.split(",");
+          delayed.add(parts[0].trim());
+        }
       }
 
       for(var line in tasksLines){
@@ -67,7 +73,8 @@ class TasksDelaysState extends State<TasksDelays> {
         if(parts[2] == "0"){
           String message = 'Task: ${parts[3].trim()}, deadline: ${parts[1].trim()}';
           loadedTasks[entry.key]!["completed"]!.add(message);
-        }else if(delayed.contains(parts[2])){
+
+        }else if(exists && delayed.contains(parts[2])){
           String explanation = "";
 
           for(var line in delaysLines){
@@ -81,6 +88,9 @@ class TasksDelaysState extends State<TasksDelays> {
           String message = 'Task: ${parts[3].trim()}, task number: ${parts[2].trim()}, deadline: ${parts[1].trim()}, \nexplanation: ${explanation}';
           loadedTasks[entry.key]!["delayed"]!.add(message);
 
+        }else if(parts.length == 5){
+          String message = 'Task: ${parts[3].trim()}, task number: ${parts[2].trim()}, deadline: ${parts[1].trim()},\n hours spent: ${parts[4].trim()}';
+          loadedTasks[entry.key]!["unfinished"]!.add(message);
         }else{
           String message = 'Task: ${parts[3].trim()}, task number: ${parts[2].trim()}, deadline: ${parts[1].trim()}';
           loadedTasks[entry.key]!["unfinished"]!.add(message);
@@ -103,8 +113,8 @@ class TasksDelaysState extends State<TasksDelays> {
           crossAxisCount: 3, // Max 3 users per row
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-         childAspectRatio: 0.75,
-         children: widget.users.entries.map((entry) {
+          childAspectRatio: 0.75,
+          children: widget.users.entries.map((entry) {
            final userName = entry.key;
            final userRole = entry.value;
 

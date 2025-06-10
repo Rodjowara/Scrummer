@@ -19,11 +19,13 @@ class Meeting{
   final String datetime;
   final String channel;
   final List<String> users;
+  final List<String> log;
 
   const Meeting({
     required this.datetime,
     required this.channel,
-    required this.users
+    required this.users,
+    required this.log
   });
 }
 
@@ -36,21 +38,62 @@ class MeetingsState extends State<Meetings> {
     loadMeetings();
   }
 
-  Future<void> loadMeetings() async{
-    List<Meeting> loadedMeetings = [];
+  Future<void> loadMeetings() async {
     final file = File('${widget.folderPath}/meeting.txt');
-    final lines = await file.readAsLines();
 
-    for(var line in lines){
+    if (!await file.exists()) return;
+
+    final lines = await file.readAsLines();
+    List<Meeting> loadedMeetings = [];
+
+    Meeting? currentMeeting;
+    List<String> currentLog = [];
+
+    for (var line in lines) {
+      // If the line has 4 or more comma-separated values, it's a metadata line
       final parts = line.split(",");
-      String datetime = '${parts[0].trim()} ${parts[1].trim()}';
-      String channel = '${parts[2].trim()}';
-      List<String> users = [];
-      for(int i = 3; i < parts.length; i++){
-        users.add(parts[i].trim());
+
+      // Check if this is a metadata line (date format and at least 4 parts)
+      final isMetadata = parts.length >= 4 && RegExp(r'\d{2}\.\d{2}\.\d{4}').hasMatch(parts[0].trim());
+
+      if (isMetadata) {
+        // Save previous meeting
+        if (currentMeeting != null) {
+          loadedMeetings.add(Meeting(
+            datetime: currentMeeting.datetime,
+           channel: currentMeeting.channel,
+           users: currentMeeting.users,
+           log: List.from(currentLog),
+         ));
+        }
+
+        // Parse new meeting
+        final date = parts[0].trim();
+        final time = parts[1].trim();
+        final channel = parts[2].trim();
+       final users = parts.sublist(3).join(',').split(',').map((u) => u.trim()).where((u) => u.isNotEmpty).toList();
+
+        currentMeeting = Meeting(
+          datetime: '$date $time',
+          channel: channel,
+          users: users,
+          log: [],
+        );
+        currentLog = [];
+      } else if (currentMeeting != null) {
+        // Add to current log
+        currentLog.add(line.trim());
       }
-      Meeting meeting = Meeting(datetime: datetime, channel: channel, users: users);
-      loadedMeetings.add(meeting);
+    }
+
+    // Add the final meeting at end of file
+    if (currentMeeting != null) {
+      loadedMeetings.add(Meeting(
+        datetime: currentMeeting.datetime,
+        channel: currentMeeting.channel,
+        users: currentMeeting.users,
+        log: List.from(currentLog),
+      ));
     }
 
     setState(() {
@@ -98,6 +141,21 @@ class MeetingsState extends State<Meetings> {
                          softWrap: true,
                           textAlign: TextAlign.center,
                        ),
+                       Text(
+                          'Log:',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                      const SizedBox(height: 4),
+                      ...meeting.log.map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                           entry,
+                           style: const TextStyle(fontSize: 16),
+                           textAlign: TextAlign.center,
+                         ),
+                        ),
+                      ),
                      ],
                    ),
                  ),
