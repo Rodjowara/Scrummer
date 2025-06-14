@@ -46,7 +46,7 @@ intents.members = True
 intents.guilds = True
 scheduler = AsyncIOScheduler()
 
-info = Info()
+info = Info()   
 setup_done = 0
 server_name = None
 wokenup = 0
@@ -305,8 +305,8 @@ async def setup(ctx):
         file.write(f'meeting_time:{info.meeting_time}\n')
         file.write(f'progress_channel:{info.progress_channel}\n')
         file.write(f'current_week:{info.current_week}\n')
-        file.write(f'index:{info.index}\n')
         file.write(f'priority:{info.priority}\n')
+        file.write(f'index:{info.index}\n')
 
     with open('progress.txt', 'w', encoding="utf-8") as file:
         file.write(f"Week {info.current_week}:\n")

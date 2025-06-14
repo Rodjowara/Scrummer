@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class TasksDelays extends StatefulWidget{
@@ -72,6 +73,11 @@ class TasksDelaysState extends State<TasksDelays> {
 
         if(parts[2] == "0"){
           String message = 'Task: ${parts[3].trim()}, deadline: ${parts[1].trim()}';
+
+          if(parts.length == 5){
+            message = message + "\nHours spent: ${parts[4].trim()}";
+          }
+
           loadedTasks[entry.key]!["completed"]!.add(message);
 
         }else if(exists && delayed.contains(parts[2])){
@@ -86,6 +92,11 @@ class TasksDelaysState extends State<TasksDelays> {
           }
 
           String message = 'Task: ${parts[3].trim()}, task number: ${parts[2].trim()}, deadline: ${parts[1].trim()}, \nexplanation: ${explanation}';
+
+          if(parts.length == 5){
+            message = message + "\nHours spent: ${parts[4].trim()}";
+          }
+
           loadedTasks[entry.key]!["delayed"]!.add(message);
 
         }else if(parts.length == 5){
@@ -93,6 +104,11 @@ class TasksDelaysState extends State<TasksDelays> {
           loadedTasks[entry.key]!["unfinished"]!.add(message);
         }else{
           String message = 'Task: ${parts[3].trim()}, task number: ${parts[2].trim()}, deadline: ${parts[1].trim()}';
+          
+          if(parts.length == 5){
+            message = message + "\nHours spent: ${parts[4].trim()}";
+          }
+
           loadedTasks[entry.key]!["unfinished"]!.add(message);
         }
       }

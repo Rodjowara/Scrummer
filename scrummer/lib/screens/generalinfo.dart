@@ -141,6 +141,10 @@ class GeneralInfoState extends State<GeneralInfo> {
                      textAlign: TextAlign.center,
                    ),
                    Text(
+                     'Meeting time: ${data["meeting_time"] ?? 'N/A'}',
+                     textAlign: TextAlign.center,
+                   ),
+                   Text(
                      'Current week: ${data["current_week"] ?? 'N/A'}',
                      textAlign: TextAlign.center,
                    ),

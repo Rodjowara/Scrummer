@@ -49,6 +49,7 @@ class ReportsState extends State<Reports> {
       setState(() {
         reports = loadedReports;
       });
+      
     }else{
       setState(() {
         reports = {};

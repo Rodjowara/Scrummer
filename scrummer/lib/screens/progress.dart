@@ -36,10 +36,14 @@ class ProgressState extends State<Progress> {
     final file = File('${widget.folderPath}/progress.txt');
     final lines = await file.readAsLines();
     for(var line in lines){
+      if(line.startsWith("Week")){
+        continue;
+      }
+
       var parts = line.split("|");
 
-      if(parts.length == 4){
-        String message = '${parts[0].trim()} ${parts[2].trim()}, \n${parts[3].trim()}';
+      if(parts.length == 5){
+        String message = '${parts[0].trim()}, ${parts[2].trim()}: \n${parts[3].trim()}';
         loadedProgress[parts[1].trim()]!.add(message);
       }else{
         String message = '${parts[0].trim()}, ${parts[2].trim()}';
@@ -55,7 +59,7 @@ class ProgressState extends State<Progress> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     appBar: AppBar(title: const Text('Tasks & Delays')),
+     appBar: AppBar(title: const Text('Progress')),
      body: Padding(
        padding: const EdgeInsets.all(16),
        child: GridView.count(
