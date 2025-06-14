@@ -39,7 +39,7 @@ class CustomHelpCommand(commands.HelpCommand):
         await channel.send(embed=embed)
 
 
-TOKEN = "MTMwMDQwNDk3OTQyMDM2ODkxNw.GY_yyw.nZjvzf-4KDxCtGfxm0CQ6Chm-BUIWLrpDuzqGE"
+TOKEN = "your bot token here"
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -111,8 +111,6 @@ async def wakeup(ctx):
             current_week = 52 - tempdate + week_number
 
         if str(current_week) != info.current_week:
-            print(f"Info.current week: {type(info.current_week)}")
-            print(f"Current week: {type(current_week)}")
             lines[6] = "current_week:" + str(current_week) + "\n"
             info.current_week = current_week
 
@@ -346,7 +344,6 @@ async def voice(ctx, channel_name: str):
 
     now = datetime.now()
     time = f"{now.day:02}.{now.month:02}.{now.year:02},{now.hour:02}:{now.hour:02}"
-    print(f"Time: {time}")
 
     if(not members):
         await ctx.send("Please run this command once all the people are in the voice channel")
@@ -472,14 +469,13 @@ async def progress(ctx, id = 0, existing = 0, *, description:str):
 
                     if(existing == 0):
                         newline[2] = "0"
-                    
-                    if(len(newline) == 5):
-                        print(f"Existing: {existing}")
+                    newline[4] = newline[4].rstrip("\n")
+                    if(newline[4] != ""):
+                        newline[4] = newline[4].rstrip("\n")
                         hours = int(newline[4]) + existing
-                        newline[4] = str(hours)
-                        print(f"Hours: {hours}")
+                        newline[4] = str(hours) + "\n"
                     else:
-                        newline.append(str(existing))
+                        newline[4] = str(existing) + "\n"
 
                     newline = ",".join(newline)
                     lines[ind] = newline
@@ -506,7 +502,7 @@ async def progress(ctx, id = 0, existing = 0, *, description:str):
                 await ctx.send(f"Task with id {id} was not assigned to you")            
 
         else:
-            message = f"{time} | {ctx.author} | {description} \n"
+            message = f"\n{time} | {ctx.author} | {description}"
             progress.write(message)
             await ctx.send("Progress entry successfully reported")
 
@@ -562,6 +558,9 @@ async def file(ctx, file, exact = 0):
     elif(file == "meeting.txt" or file == "meeting"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File("meeting.txt"))
     
+    elif(file == "report.txt" or file == "report"):
+        await ctx.send(f"Here is the {file} file: ", file = discord.File("reports.txt"))
+
     elif(file == "setup" or file == f"setup_{info.server_name}.txt"):
         await ctx.send(f"Here is the {file} file: ", file = discord.File(f"setup_{info.server_name}.txt"))
 

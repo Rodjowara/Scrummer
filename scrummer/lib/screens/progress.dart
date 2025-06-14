@@ -42,7 +42,7 @@ class ProgressState extends State<Progress> {
 
       var parts = line.split("|");
 
-      if(parts.length == 5){
+      if(parts.length >= 4){
         String message = '${parts[0].trim()}, ${parts[2].trim()}: \n${parts[3].trim()}';
         loadedProgress[parts[1].trim()]!.add(message);
       }else{
